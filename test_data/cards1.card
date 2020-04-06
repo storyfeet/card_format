@@ -1,0 +1,7 @@
+
+def green:
+    .speak:no
+    .do:"yes"
+
+4 * help:
+    .tx:"can make sandwiches"
