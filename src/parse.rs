@@ -2,14 +2,14 @@ use gobble::*;
 use std::collections::BTreeMap;
 use std::str::FromStr;
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone, Copy)]
 pub enum EType {
     Def,
     Var,
     Card(usize),
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub enum CData {
     S(String),
     N(isize),
@@ -18,9 +18,9 @@ pub enum CData {
 
 #[derive(Debug, PartialEq)]
 pub struct CExpr {
-    name: String,
-    use_var: Option<String>,
-    props: BTreeMap<String, CData>,
+    pub name: String,
+    pub use_var: Option<String>,
+    pub props: BTreeMap<String, CData>,
 }
 
 pub fn card_file() -> impl Parser<Vec<(EType, CExpr)>> {
@@ -81,7 +81,7 @@ pub fn c_type_expr() -> impl Parser<(EType, CExpr)> {
 
 pub fn card_expr() -> impl Parser<CExpr> {
     read_fs(is_alpha_num, 1)
-        .then(maybe(s_tag("$").ig_then(common_str())))
+        .then(maybe(s_tag("$").ig_then(str_val())))
         .then_ig(s_tag(":"))
         .then(repeat(props(), 0))
         .map(|((name, use_var), vals)| {

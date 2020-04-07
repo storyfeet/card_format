@@ -5,3 +5,9 @@ def green:
 
 4 * help:
     .tx:"can make sandwiches"
+
+var purple:
+    .speak:"mauve"
+
+porp $ purple:
+    .do:"paint"
