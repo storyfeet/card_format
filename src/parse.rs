@@ -1,4 +1,5 @@
 use gobble::*;
+use serde_derive::*;
 use std::collections::BTreeMap;
 use std::str::FromStr;
 
@@ -9,7 +10,7 @@ pub enum EType {
     Card(usize),
 }
 
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
 pub enum CData {
     S(String),
     N(isize),

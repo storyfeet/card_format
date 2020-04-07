@@ -2,6 +2,7 @@ pub mod parse;
 use failure_derive::*;
 use gobble::Parser;
 use parse::{CData, EType};
+use serde_derive::*;
 use std::collections::BTreeMap;
 use std::io::Read;
 
@@ -15,7 +16,7 @@ pub enum CardErr {
     RefErr(String, String),
 }
 
-#[derive(Debug)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct Card {
     num: usize,
     name: String,
