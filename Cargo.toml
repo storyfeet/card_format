@@ -8,3 +8,5 @@ edition = "2018"
 
 [dependencies]
 gobble = {path="../../mlibs/gobble/"}
+failure = "0.1.7"
+failure_derive = "0.1.7"

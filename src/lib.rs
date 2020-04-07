@@ -1,13 +1,17 @@
 pub mod parse;
+use failure_derive::*;
 use gobble::Parser;
 use parse::{CData, EType};
 use std::collections::BTreeMap;
 use std::io::Read;
 
-#[derive(Debug)]
+#[derive(Debug, Fail)]
 pub enum CardErr {
+    #[fail(display = "File Error")]
     FileErr,
+    #[fail(display = "Parse Error")]
     ParseErr,
+    #[fail(display = "Error referencing {} from {}", 0, 1)]
     RefErr(String, String),
 }
 
