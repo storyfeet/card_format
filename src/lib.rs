@@ -16,7 +16,7 @@ pub enum CardErr {
     RefErr(String, String),
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize)]
 pub struct Card {
     pub num: usize,
     pub name: String,

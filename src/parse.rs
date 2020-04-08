@@ -1,5 +1,5 @@
 use gobble::*;
-use serde_derive::*;
+use serde::{Serialize, Serializer};
 use std::collections::BTreeMap;
 use std::str::FromStr;
 
@@ -10,11 +10,24 @@ pub enum EType {
     Card(usize),
 }
 
-#[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
+#[derive(Debug, PartialEq, Clone)]
 pub enum CData {
     S(String),
     N(isize),
     R(String),
+}
+
+impl Serialize for CData {
+    fn serialize<S>(&self, sr: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        match self {
+            CData::S(s) => sr.serialize_str(s),
+            CData::N(i) => sr.serialize_i64(*i as i64),
+            CData::R(r) => sr.serialize_str(r),
+        }
+    }
 }
 
 #[derive(Debug, PartialEq)]
