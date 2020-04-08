@@ -16,11 +16,11 @@ pub enum CardErr {
     RefErr(String, String),
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Card {
-    num: usize,
-    name: String,
-    data: BTreeMap<String, CData>,
+    pub num: usize,
+    pub name: String,
+    pub data: BTreeMap<String, CData>,
 }
 
 impl Card {
