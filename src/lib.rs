@@ -1,7 +1,7 @@
 pub mod parse;
 use failure_derive::*;
 use gobble::Parser;
-use parse::{CData, EType};
+pub use parse::{CData, EType};
 use serde_derive::*;
 use std::collections::BTreeMap;
 use std::io::Read;
