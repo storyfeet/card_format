@@ -1,6 +1,6 @@
 pub mod parse;
 use failure_derive::*;
-use gobble::Parser;
+use gobble::{ParseError, Parser};
 pub use parse::{CData, EType};
 use serde_derive::*;
 use std::collections::BTreeMap;
@@ -10,8 +10,8 @@ use std::io::Read;
 pub enum CardErr {
     #[fail(display = "File Error")]
     FileErr,
-    #[fail(display = "Parse Error")]
-    ParseErr,
+    #[fail(display = "Parse Error: {}", 0)]
+    ParseErr(ParseError),
     #[fail(display = "Error referencing {} from {}", 0, 1)]
     RefErr(String, String),
 }
@@ -57,7 +57,7 @@ pub fn load_cards<R: Read>(r: &mut R) -> Result<Vec<Card>, CardErr> {
     r.read_to_string(&mut s).map_err(|_| CardErr::FileErr)?;
     let c_exs = parse::card_file()
         .parse_s(&s)
-        .map_err(|_| CardErr::ParseErr)?;
+        .map_err(|e| CardErr::ParseErr(e))?;
     for (et, c) in c_exs {
         match et {
             EType::Var => {
