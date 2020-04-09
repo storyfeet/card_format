@@ -94,7 +94,7 @@ pub fn c_type_expr() -> impl Parser<(EType, CExpr)> {
 }
 
 pub fn card_expr() -> impl Parser<CExpr> {
-    read_fs(is_alpha_num, 1)
+    str_val()
         .then(maybe(s_tag("$").ig_then(str_val())))
         .then_ig(s_tag(":"))
         .then(repeat(props(), 0))
