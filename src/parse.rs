@@ -46,7 +46,7 @@ pub struct CExpr {
 }
 
 pub fn card_file() -> impl Parser<Vec<(EType, CExpr)>> {
-    repeat(c_type_expr(), 0).then_ig(n_item(0)).then_ig(eoi)
+    repeat_until(c_type_expr(), n_item(0).then_ig(eoi))
 }
 
 pub fn uint() -> impl Parser<usize> {
