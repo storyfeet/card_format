@@ -1,5 +1,5 @@
 use gobble::*;
-use serde::{Serialize, Serializer};
+use serde::ser::{Serialize, SerializeSeq, Serializer};
 use std::collections::BTreeMap;
 use std::str::FromStr;
 
@@ -15,6 +15,7 @@ pub enum CData {
     S(String),
     N(isize),
     R(String),
+    L(Vec<CData>),
 }
 
 impl Serialize for CData {
@@ -26,6 +27,13 @@ impl Serialize for CData {
             CData::S(s) => sr.serialize_str(s),
             CData::N(i) => sr.serialize_i64(*i as i64),
             CData::R(r) => sr.serialize_str(r),
+            CData::L(l) => {
+                let mut ser = sr.serialize_seq(Some(l.len()))?;
+                for e in l {
+                    ser.serialize_element(e)?;
+                }
+                ser.end()
+            }
         }
     }
 }
@@ -69,10 +77,14 @@ pub fn str_val() -> impl Parser<String> {
     common_str().or(read_fs(is_alpha_num, 1))
 }
 
-pub fn c_data() -> impl Parser<CData> {
-    (int().map(|v| CData::N(v)))
+pub fn c_data<'a>(it: &LCChars<'a>) -> ParseRes<'a, CData> {
+    let p = (int().map(|v| CData::N(v)))
         .or(str_val().map(|s| CData::S(s)))
         .or(s_tag("$").ig_then(str_val()).map(|s| CData::R(s)))
+        .or(s_tag("[")
+            .ig_then(sep_until(c_data, s_tag(","), s_tag("]")))
+            .map(|l| CData::L(l)));
+    p.parse(it)
 }
 
 pub fn props() -> impl Parser<(String, CData)> {
@@ -80,7 +92,7 @@ pub fn props() -> impl Parser<(String, CData)> {
         .ig_then(s_tag("."))
         .ig_then(read_fs(is_alpha_num, 1))
         .then_ig(s_tag(":"))
-        .then(c_data())
+        .then(c_data)
 }
 
 pub fn c_type_expr() -> impl Parser<(EType, CExpr)> {
