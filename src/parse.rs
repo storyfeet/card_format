@@ -77,12 +77,20 @@ pub fn str_val() -> impl Parser<String> {
     common_str().or(read_fs(is_alpha_num, 1))
 }
 
+pub fn sl() -> impl Parser<()> {
+    repeat(tag(" ").or(tag("\t")).or(tag("\n")), 0).map(|_| ())
+}
+
+pub fn sl_tag(t: &'static str) -> impl Parser<&'static str> {
+    sl().ig_then(tag(t)).then_ig(sl())
+}
+
 pub fn c_data<'a>(it: &LCChars<'a>) -> ParseRes<'a, CData> {
     let p = (int().map(|v| CData::N(v)))
         .or(str_val().map(|s| CData::S(s)))
         .or(s_tag("$").ig_then(str_val()).map(|s| CData::R(s)))
         .or(s_tag("[")
-            .ig_then(sep_until(c_data, s_tag(","), s_tag("]")))
+            .ig_then(sep_until(c_data, sl_tag(","), s_tag("]")))
             .map(|l| CData::L(l)));
     p.parse(it)
 }
