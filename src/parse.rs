@@ -1,7 +1,6 @@
 use gobble::*;
 use serde::ser::{Serialize, SerializeSeq, Serializer};
 use std::collections::BTreeMap;
-use std::str::FromStr;
 
 #[derive(Debug, PartialEq, Clone, Copy)]
 pub enum EType {
@@ -46,21 +45,7 @@ pub struct CExpr {
 }
 
 pub fn card_file() -> impl Parser<Vec<(EType, CExpr)>> {
-    repeat_until(c_type_expr(), n_item(0).then_ig(eoi))
-}
-
-pub fn uint() -> impl Parser<usize> {
-    read_fs(is_num, 1).try_map(|v| usize::from_str(&v).map_err(|_| ECode::SMess("Num Too long")))
-}
-
-pub fn int() -> impl Parser<isize> {
-    ws(0).ig_then(maybe(tag("-"))).then(uint()).map(|(o, v)| {
-        if o.is_some() {
-            -(v as isize)
-        } else {
-            v as isize
-        }
-    })
+    repeat_until_ig(c_type_expr(), n_item(0).then_ig(eoi))
 }
 
 pub fn n_item(n: usize) -> impl Parser<()> {
@@ -78,7 +63,7 @@ pub fn str_val() -> impl Parser<String> {
 }
 
 pub fn sl() -> impl Parser<()> {
-    repeat(tag(" ").or(tag("\t")).or(tag("\n")), 0).map(|_| ())
+    repeat(" ".or("\t").or("\n"), 0).map(|_| ())
 }
 
 pub fn sl_tag(t: &'static str) -> impl Parser<&'static str> {
@@ -86,7 +71,7 @@ pub fn sl_tag(t: &'static str) -> impl Parser<&'static str> {
 }
 
 pub fn c_data<'a>(it: &LCChars<'a>) -> ParseRes<'a, CData> {
-    let p = (int().map(|v| CData::N(v)))
+    let p = (common_int.map(|v| CData::N(v)))
         .or(str_val().map(|s| CData::S(s)))
         .or(s_tag("$").ig_then(str_val()).map(|s| CData::R(s)))
         .or(s_tag("[")
@@ -96,21 +81,21 @@ pub fn c_data<'a>(it: &LCChars<'a>) -> ParseRes<'a, CData> {
 }
 
 pub fn props() -> impl Parser<(String, CData)> {
-    n_item(0)
-        .ig_then(s_tag("."))
-        .ig_then(read_fs(is_alpha_num, 1))
-        .then_ig(s_tag(":"))
+    (n_item(0), s_("."))
+        .ig_then(str_val())
+        .then_ig(s_(":"))
         .then(c_data)
 }
 
 pub fn c_type_expr() -> impl Parser<(EType, CExpr)> {
-    n_item(0)
-        .ig_then(
-            (s_tag("def").map(|_| EType::Def))
-                .or(s_tag("var").map(|_| EType::Var))
-                .or(maybe(uint().then_ig(s_tag("*"))).map(|opn| EType::Card(opn.unwrap_or(1)))),
-        )
-        .then(card_expr())
+    n_item(0).ig_then((
+        or3(
+            keyword("def").map(|_| EType::Def),
+            keyword("var").map(|_| EType::Var),
+            maybe(common_uint.then_ig(ws_("*"))).map(|opt| EType::Card(opt.unwrap_or(1))),
+        ),
+        ws_(card_expr()),
+    ))
 }
 
 pub fn card_expr() -> impl Parser<CExpr> {

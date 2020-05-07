@@ -49,12 +49,10 @@ impl Card {
     }
 }
 
-pub fn load_cards<R: Read>(r: &mut R) -> Result<Vec<Card>, CardErr> {
+pub fn parse_cards(s: &str) -> Result<Vec<Card>, CardErr> {
     let mut default = None;
     let mut vars = BTreeMap::new();
-    let mut s = String::new();
     let mut res = Vec::new();
-    r.read_to_string(&mut s).map_err(|_| CardErr::FileErr)?;
     let c_exs = parse::card_file()
         .parse_s(&s)
         .map_err(|e| CardErr::ParseErr(e))?;
@@ -78,6 +76,12 @@ pub fn load_cards<R: Read>(r: &mut R) -> Result<Vec<Card>, CardErr> {
         }
     }
     Ok(res)
+}
+
+pub fn load_cards<R: Read>(r: &mut R) -> Result<Vec<Card>, CardErr> {
+    let mut s = String::new();
+    r.read_to_string(&mut s).map_err(|_| CardErr::FileErr)?;
+    parse_cards(&s)
 }
 
 #[cfg(test)]
