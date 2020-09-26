@@ -44,59 +44,56 @@ pub struct CExpr {
     pub props: BTreeMap<String, CData>,
 }
 
-pub fn card_file() -> impl Parser<Vec<(EType, CExpr)>> {
-    repeat_until_ig(c_type_expr(), n_item(0).then_ig(eoi))
+pub fn card_file() -> impl Parser<Out = Vec<(EType, CExpr)>> {
+    star_until_ig(c_type_expr(), n_item().then_ig(eoi))
 }
 
-pub fn n_item(n: usize) -> impl Parser<()> {
-    skip_while(" \n\t;\r", n)
+pub fn n_item() -> impl Parser<Out = ()> {
+    " \n\t;\r".istar()
 }
 
-pub fn str_val() -> impl Parser<String> {
-    or(common_str, (Alpha, NumDigit, '_').min_n(1))
+pub fn str_val() -> impl Parser<Out = String> {
+    or(common::Quoted, (Alpha, NumDigit, '_').min_n(1))
 }
 
-pub fn sl() -> impl Parser<()> {
-    skip_while(" \t\n", 0)
+pub fn sl() -> impl Parser<Out = ()> {
+    " \t\n".istar()
 }
 
-pub fn sl_<P: Parser<V>, V>(p: P) -> impl Parser<V> {
+pub fn sl_<P: Parser>(p: P) -> impl Parser<Out = P::Out> {
     wrap(sl(), p)
 }
 
-pub fn c_data<'a>(it: &LCChars<'a>) -> ParseRes<'a, CData> {
-    let p = (common_int.map(|v| CData::N(v)))
-        .or(str_val().map(|s| CData::S(s)))
-        .or(s_("$").ig_then(str_val()).map(|s| CData::R(s)))
-        .or(s_("[")
-            .ig_then(sep_until(c_data, sl_(","), s_("]")))
-            .map(|l| CData::L(l)));
-    p.parse(it)
+parser! { (CardData -> CData)
+    or!(
+        common::Int.map(|v| CData::N(v)),
+        str_val().map(|s| CData::S(s)),
+        ws_("$").ig_then(str_val()).map(|s| CData::R(s)),
+        ws_("[").ig_then(sep_until_ig(CardData, sl_(","), ws_("]")))
+            .map(|l| CData::L(l))
+    )
 }
 
-pub fn props() -> impl Parser<(String, CData)> {
-    (n_item(0), ".")
-        .ig_then(str_val())
-        .then_ig(s_(":"))
-        .then(c_data)
+pub fn props() -> impl Parser<Out = (String, CData)> {
+    (n_item(), ".", str_val(), ws__(":"), CardData).map(|(_, _, k, _, v)| (k, v))
 }
 
-pub fn c_type_expr() -> impl Parser<(EType, CExpr)> {
-    n_item(0).ig_then((
-        or3(
+pub fn c_type_expr() -> impl Parser<Out = (EType, CExpr)> {
+    n_item().ig_then((
+        or!(
             keyword("def").map(|_| EType::Def),
             keyword("var").map(|_| EType::Var),
-            maybe(common_uint.then_ig(ws_("*"))).map(|opt| EType::Card(opt.unwrap_or(1))),
+            maybe(common::UInt.then_ig(ws_("*"))).map(|opt| EType::Card(opt.unwrap_or(1))),
         ),
         ws_(card_expr()),
     ))
 }
 
-pub fn card_expr() -> impl Parser<CExpr> {
+pub fn card_expr() -> impl Parser<Out = CExpr> {
     str_val()
-        .then(maybe(s_("$").ig_then(str_val())))
-        .then_ig(s_(":"))
-        .then(repeat(props(), 0))
+        .then(maybe(ws__("$").ig_then(str_val())))
+        .then_ig(ws__(":"))
+        .then(star(props()))
         .map(|((name, use_var), vals)| {
             let mut props = BTreeMap::new();
             for (dname, cdat) in vals {
