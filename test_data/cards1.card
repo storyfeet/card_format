@@ -1,6 +1,6 @@
 
-def green:
-    .speak:no
+def :
+    .speak:"no"
     .do:"yes"
 
 4 * help:
@@ -9,5 +9,5 @@ def green:
 var purple:
     .speak:"mauve"
 
-porp $ purple:
+porp $purple:
     .do:"paint"

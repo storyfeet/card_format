@@ -1,12 +1,20 @@
 use gobble::*;
 use serde::ser::{Serialize, SerializeSeq, Serializer};
-use std::collections::BTreeMap;
 
-#[derive(Debug, PartialEq, Clone, Copy)]
-pub enum EType {
-    Def,
-    Var,
-    Card(usize),
+pub type CVec = Vec<(String, CData)>;
+
+#[derive(Debug, PartialEq, Clone)]
+pub enum Entry {
+    Def(CVec),
+    Var(String, CVec),
+    Card {
+        num: usize,
+        name: String,
+        params: Vec<CData>,
+        parent: Option<String>,
+        data: CVec,
+    },
+    Param(Vec<String>),
 }
 
 #[derive(Debug, PartialEq, Clone)]
@@ -15,6 +23,54 @@ pub enum CData {
     N(isize),
     R(String),
     L(Vec<CData>),
+}
+
+parser! {(NL-> ())
+    (maybe('\r'),'\n').ig()
+}
+
+parser! { (EmptyLine-> ())
+    (ws_(Comment),NL).ig()
+}
+
+parser! { (Comment->())
+    maybe(("#",not("\r\n").star())).ig()
+}
+
+parser! {(SetEnd->())
+    (ws__(maybe(":")),Comment,NL,star(EmptyLine)).ig()
+}
+
+parser! {(Count->usize)
+    maybe(common::UInt.then_ig(ws_("*"))).map(|o| o.unwrap_or(1))
+}
+
+parser! { (Dot->())
+    or!{
+        (" \t".plus(),maybe(".")).ig(),
+        ".".ig(),
+    }
+}
+
+parser! {(PLine->Entry)
+    debug(or!(
+        (keyword("def"),SetEnd,DataLines).map(|(_,_,d)|Entry::Def(d)),
+        (keyword("var"),ws_(str_val()),ws__(":"),NL,DataLines).map(|(_,name,_,_,d)|Entry::Var(name,d)),
+        (keyword("param"),star(ws_(str_val())),SetEnd).map(|(_,v,_)|Entry::Param(v)),
+        (Count,ws_(str_val()),star(ws_(",").ig_then(ws_(CardData))),maybe(ws_("$".ig_then(str_val()))),SetEnd,DataLines)
+            .map(|(num,name,params,parent,_,data)|Entry::Card{num,name,params,parent,data}),
+    ),"ENTRY")
+}
+
+parser! {(DataLines -> CVec )
+    star(DataLine).map(|v|v.into_iter().filter_map(|v|v).collect())
+}
+
+parser! { (DataLine -> Option<(String,CData)>)
+    or!(
+        (Dot,str_val(),ws__(":"),CardData,ws_(NL)).map(|(_,k,_,v,_)|Some((k,v))),
+        EmptyLine.map(|_|None),
+    )
 }
 
 impl Serialize for CData {
@@ -37,15 +93,8 @@ impl Serialize for CData {
     }
 }
 
-#[derive(Debug, PartialEq)]
-pub struct CExpr {
-    pub name: String,
-    pub use_var: Option<String>,
-    pub props: BTreeMap<String, CData>,
-}
-
-pub fn card_file() -> impl Parser<Out = Vec<(EType, CExpr)>> {
-    star_until_ig(c_type_expr(), n_item().then_ig(eoi))
+parser! {(CardFile ->Vec<Entry>)
+    middle(star(EmptyLine),star(PLine),ws_(eoi))
 }
 
 pub fn n_item() -> impl Parser<Out = ()> {
@@ -74,52 +123,31 @@ parser! { (CardData -> CData)
     )
 }
 
-pub fn props() -> impl Parser<Out = (String, CData)> {
-    (n_item(), ".", str_val(), ws__(":"), CardData).map(|(_, _, k, _, v)| (k, v))
-}
-
-pub fn c_type_expr() -> impl Parser<Out = (EType, CExpr)> {
-    n_item().ig_then((
-        or!(
-            keyword("def").map(|_| EType::Def),
-            keyword("var").map(|_| EType::Var),
-            maybe(common::UInt.then_ig(ws_("*"))).map(|opt| EType::Card(opt.unwrap_or(1))),
-        ),
-        ws_(card_expr()),
-    ))
-}
-
-pub fn card_expr() -> impl Parser<Out = CExpr> {
-    str_val()
-        .then(maybe(ws__("$").ig_then(str_val())))
-        .then_ig(ws__(":"))
-        .then(star(props()))
-        .map(|((name, use_var), vals)| {
-            let mut props = BTreeMap::new();
-            for (dname, cdat) in vals {
-                props.insert(dname, cdat);
-            }
-            CExpr {
-                name,
-                use_var,
-                props,
-            }
-        })
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::collections::BTreeMap;
     use std::io::Read;
     #[test]
     fn it_works() {
+        let mut map0 = BTreeMap::new();
+        map0.insert("speak".to_string(), "no".to_string());
+        map0.insert("do".to_string(), "yes".to_string());
         let mut f = std::fs::File::open("test_data/cards1.card").unwrap();
         let mut s = String::new();
         f.read_to_string(&mut s).unwrap();
-        let cf = card_file().parse_s(&s).unwrap();
-        assert_eq!(cf[0].1.name, "green");
-        assert_eq!(cf[1].1.name, "help");
-        assert_eq!(cf[0].0, EType::Def);
-        assert_eq!(cf[1].0, EType::Card(4));
+        let cf = CardFile.parse_s(&s).unwrap();
+        assert_eq!(
+            cf[0],
+            Entry::Def(vec![
+                ("speak".to_string(), CData::S("no".to_string())),
+                ("do".to_string(), CData::S("yes".to_string())),
+            ])
+        );
+        //assert_eq!(cf[1], Line::Def);
+        /*assert_eq!(
+            cf[2],
+            Line::Set("speak".to_string(), CData::S("no".to_string()))
+        );*/
     }
 }
