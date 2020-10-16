@@ -53,13 +53,13 @@ parser! { (Dot->())
 }
 
 parser! {(PLine->Entry)
-    debug(or!(
+    or!(
         (keyword("def"),SetEnd,DataLines).map(|(_,_,d)|Entry::Def(d)),
         (keyword("var"),ws_(str_val()),ws__(":"),NL,DataLines).map(|(_,name,_,_,d)|Entry::Var(name,d)),
         (keyword("param"),star(ws_(str_val())),SetEnd).map(|(_,v,_)|Entry::Param(v)),
         (Count,ws_(str_val()),star(ws_(",").ig_then(ws_(CardData))),maybe(ws_("$".ig_then(str_val()))),SetEnd,DataLines)
             .map(|(num,name,params,parent,_,data)|Entry::Card{num,name,params,parent,data}),
-    ),"ENTRY")
+    )
 }
 
 parser! {(DataLines -> CVec )
@@ -106,7 +106,7 @@ pub fn str_val() -> impl Parser<Out = String> {
 }
 
 pub fn sl() -> impl Parser<Out = ()> {
-    " \t\n".istar()
+    " \t\n\r".istar()
 }
 
 pub fn sl_<P: Parser>(p: P) -> impl Parser<Out = P::Out> {
@@ -118,7 +118,7 @@ parser! { (CardData -> CData)
         common::Int.map(|v| CData::N(v)),
         str_val().map(|s| CData::S(s)),
         ws_("$").ig_then(str_val()).map(|s| CData::R(s)),
-        ws_("[").ig_then(sep_until_ig(CardData, sl_(","), ws_("]")))
+        ws_("[").ig_then(sep_until_ig(CardData, sl_(maybe(",")), ws_("]")))
             .map(|l| CData::L(l))
     )
 }
