@@ -3,6 +3,10 @@ name = "card_format"
 version = "0.1.0"
 authors = ["storyfeet <thebeaky@psmail.net>"]
 edition = "2018"
+licence = "MIT"
+keywords = ["card","read","format","load"]
+description = "A tool for writing game cards in a human readable easy to edit format"
+readme = "readme.md"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
@@ -17,7 +21,8 @@ path="src/card_check.rs"
 
 
 [dependencies]
-gobble = {path="../../mlibs/gobble/"}
+#gobble = {path="../../mlibs/gobble/"}
+gobble = "0.6.3"
 anyhow="1.0.31"
 thiserror="1.0.17"
 serde = "1.0.106"
