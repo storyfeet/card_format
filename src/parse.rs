@@ -1,12 +1,16 @@
-use gobble::*;
+use crate::card::*;
+use crate::tokenize::{CardToken, CardTokenizer};
 use serde::ser::{Serialize, SerializeSeq, Serializer};
+use std::collections::BTreeMap;
+use tokenate::{TErr, Token, TokenRes};
 
 pub type CVec = Vec<(String, CData)>;
 
 #[derive(Debug, PartialEq, Clone)]
-pub enum Entry {
+pub enum Line {
     Def(CVec),
     Var(String, CVec),
+    Param(Vec<String>),
     Card {
         num: usize,
         name: String,
@@ -14,113 +18,58 @@ pub enum Entry {
         parent: Option<String>,
         data: CVec,
     },
-    Param(Vec<String>),
 }
 
-#[derive(Debug, PartialEq, Clone)]
-pub enum CData {
-    S(String),
-    N(isize),
-    R(String),
-    L(Vec<CData>),
+pub struct LineParser<'a> {
+    tk: CardTokenizer<'a>,
+    vars: BTreeMap<String, CData>,
+    peek: Option<Token<'a, CardToken>>,
 }
 
-parser! {(NL-> ())
-    (maybe('\r'),'\n').ig()
-}
-
-parser! { (EmptyLine-> ())
-    (ws_(Comment),NL).ig()
-}
-
-parser! { (Comment->())
-    maybe(("#",not("\r\n").star())).ig()
-}
-
-parser! {(SetEnd->())
-    (ws__(maybe(":")),Comment,NL,star(EmptyLine)).ig()
-}
-
-parser! {(Count->usize)
-    maybe(common::UInt.then_ig(ws_("*"))).map(|o| o.unwrap_or(1))
-}
-
-parser! { (Dot->())
-    or!{
-        (" \t".plus(),maybe(".")).ig(),
-        ".".ig(),
-    }
-}
-
-parser! {(PLine->Entry)
-    or!(
-        (keyword("def"),SetEnd,DataLines).map(|(_,_,d)|Entry::Def(d)),
-        (keyword("var"),ws_(str_val()),ws__(":"),NL,DataLines).map(|(_,name,_,_,d)|Entry::Var(name,d)),
-        (keyword("param"),star(ws_(str_val())),SetEnd).map(|(_,v,_)|Entry::Param(v)),
-        (Count,ws_(str_val()),star(ws_(",").ig_then(ws_(CardData))),maybe(ws_("$".ig_then(str_val()))),SetEnd,DataLines)
-            .map(|(num,name,params,parent,_,data)|Entry::Card{num,name,params,parent,data}),
-    )
-}
-
-parser! {(DataLines -> CVec )
-    star(DataLine).map(|v|v.into_iter().filter_map(|v|v).collect())
-}
-
-parser! { (DataLine -> Option<(String,CData)>)
-    or!(
-        (Dot,str_val(),ws__(":"),CardData,ws_(NL)).map(|(_,k,_,v,_)|Some((k,v))),
-        EmptyLine.map(|_|None),
-    )
-}
-
-impl Serialize for CData {
-    fn serialize<S>(&self, sr: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        match self {
-            CData::S(s) => sr.serialize_str(s),
-            CData::N(i) => sr.serialize_i64(*i as i64),
-            CData::R(r) => sr.serialize_str(r),
-            CData::L(l) => {
-                let mut ser = sr.serialize_seq(Some(l.len()))?;
-                for e in l {
-                    ser.serialize_element(e)?;
-                }
-                ser.end()
-            }
+impl<'a> LineParser<'a> {
+    pub fn new(s: &'a str) -> Self {
+        Self {
+            tk: CardTokenizer::new(s),
+            vars: BTreeMap::new(),
+            peek: None,
         }
     }
-}
+    pub fn add_var(&mut self, k: String, v: CData) {
+        self.vars.insert(k, v);
+    }
 
-parser! {(CardFile ->Vec<Entry>)
-    middle(star(EmptyLine),star(PLine),ws_(eoi))
-}
+    pub fn next_token(&mut self) -> TokenRes<'a, CardToken> {
+        match self.peek.take() {
+            Some(c) => Ok(Some(c)),
+            None => self.tk.next(),
+        }
+    }
 
-pub fn n_item() -> impl Parser<Out = ()> {
-    " \n\t;\r".istar()
-}
+    pub fn peek_token(&mut self) -> TokenRes<'a, CardToken> {
+        if self.peek.is_none() {
+            self.peek = self.tk.next()?;
+        }
+        Ok(self.peek.clone())
+    }
+    pub fn unpeek(&mut self) {
+        self.peek = None;
+    }
 
-pub fn str_val() -> impl Parser<Out = String> {
-    or(common::Quoted, (Alpha, NumDigit, '_').min_n(1))
-}
+    pub fn breaks(&mut self) -> Result<(), TErr> {
+        while let Some(p) = self.peek_token()? {
+            if p.value == CardToken::Break {
+                self.unpeek();
+            } else {
+                return Ok(());
+            }
+        }
+        Ok(())
+    }
 
-pub fn sl() -> impl Parser<Out = ()> {
-    " \t\n\r".istar()
-}
-
-pub fn sl_<P: Parser>(p: P) -> impl Parser<Out = P::Out> {
-    wrap(sl(), p)
-}
-
-parser! { (CardData -> CData)
-    or!(
-        common::Int.map(|v| CData::N(v)),
-        str_val().map(|s| CData::S(s)),
-        ws_("$").ig_then(str_val()).map(|s| CData::R(s)),
-        ws_("[").ig_then(sep_until_ig(CardData, sl_(maybe(",")), ws_("]")))
-            .map(|l| CData::L(l))
-    )
+    pub fn next(&mut self) -> anyhow::Result<Line> {
+        self.breaks();
+        match self.peek_token()? {}
+    }
 }
 
 #[cfg(test)]

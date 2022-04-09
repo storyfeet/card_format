@@ -9,13 +9,14 @@ pub enum CardToken {
     KwDef,
     Dollar,
     Colon,
+    Comma,
     Star,
     SquareOpen,
     SquareClose,
     WiggleOpen,
     WiggleClose,
     Break,
-    Ident(String),
+    Text(String),
     Number(i64),
 }
 
@@ -40,7 +41,20 @@ impl<'a> CardTokenizer<'a> {
         }
     }
 
-    pub fn next(&mut self) -> TokenRes<CardToken> {
+    pub fn qoth(&mut self) -> TokenRes<'a, CardToken> {
+        self.tk.start_token();
+        self.tk.unpeek();
+        let mut s = String::new();
+        loop {
+            match self.tk.next() {
+                Some((_, '"')) => return self.tk.token_res(CardToken::Text(s), true),
+                Some((_, c)) => s.push(c),
+                None => return self.tk.expected("String to end".to_string()),
+            }
+        }
+    }
+
+    pub fn next(&mut self) -> TokenRes<'a, CardToken> {
         self.tk.skip(" \t\r");
         let pc = match self.tk.peek_char() {
             None => return Ok(None),
@@ -52,6 +66,7 @@ impl<'a> CardTokenizer<'a> {
             '{' => self.tk.token_res(CardToken::WiggleOpen, true),
             '}' => self.tk.token_res(CardToken::WiggleClose, true),
             '*' => self.tk.token_res(CardToken::Star, true),
+            ',' => self.tk.token_res(CardToken::Comma, true),
             '$' => self.tk.token_res(CardToken::Dollar, true),
             '.' => self.tk.follow_or('.', CardToken::DotDot, CardToken::Dot),
             '\n' | ';' => self.tk.token_res(CardToken::Break, true),
@@ -61,9 +76,16 @@ impl<'a> CardTokenizer<'a> {
                     CardToken::keyword(s).ok_or("Keyword".to_string())
                 })
             }
+            '#' => {
+                let _ = self
+                    .tk
+                    .take_while(|c| !";\n".contains(c), |_| Ok(CardToken::Break))?;
+                self.tk.consume_as("\n;", CardToken::Break).or(Ok(None))
+            }
+            '"' => self.qoth(),
             c if c.is_alphabetic() => self
                 .tk
-                .take_while(char::is_alphabetic, |s| Ok(CardToken::Ident(s.to_string()))),
+                .take_while(char::is_alphabetic, |s| Ok(CardToken::Text(s.to_string()))),
 
             _ => self.tk.expected("Something else".to_string()),
         }

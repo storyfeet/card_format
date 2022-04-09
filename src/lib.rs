@@ -1,10 +1,11 @@
+pub mod card;
 pub mod parse;
 pub mod tokenize;
+use card::Card;
 //use failure_derive::*;
 use gobble::err::StrungError;
 use gobble::traits::*;
 pub use parse::{CData, CVec, Entry};
-use serde_derive::*;
 use std::collections::BTreeMap;
 use std::io::Read;
 use thiserror::*;
@@ -19,46 +20,6 @@ pub enum CardErr {
     RefErr(String, String),
     #[error("No Card to add {}:{:?} to", .0,.1)]
     AddErr(String, CData),
-}
-
-#[derive(Clone, Debug, Serialize)]
-pub struct Card {
-    pub num: usize,
-    pub name: String,
-    pub data: BTreeMap<String, CData>,
-}
-
-impl Card {
-    pub fn new(name: String, num: usize) -> Card {
-        Card {
-            name,
-            num,
-            data: BTreeMap::new(),
-        }
-    }
-    pub fn build(name: String, num: usize, data: BTreeMap<String, CData>) -> Card {
-        Card { name, num, data }
-    }
-
-    pub fn fill_defaults(&mut self, rmap: &BTreeMap<String, CData>) {
-        for (k, v) in rmap {
-            if self.data.get(k).is_none() {
-                self.data.insert(k.clone(), v.clone());
-            }
-        }
-    }
-
-    pub fn follow_refs(&mut self, rmap: &BTreeMap<String, BTreeMap<String, CData>>) {
-        for (k, v) in &mut self.data {
-            if let CData::R(r) = v {
-                if let Some(mp) = rmap.get(r) {
-                    if let Some(nv) = mp.get(k) {
-                        *v = nv.clone();
-                    }
-                }
-            }
-        }
-    }
 }
 
 fn c_map(v: CVec) -> BTreeMap<String, CData> {
