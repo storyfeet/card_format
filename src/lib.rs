@@ -1,4 +1,5 @@
 pub mod parse;
+pub mod tokenize;
 //use failure_derive::*;
 use gobble::err::StrungError;
 use gobble::traits::*;

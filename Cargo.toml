@@ -23,6 +23,7 @@ path="src/card_check.rs"
 [dependencies]
 #gobble = {path="../../mlibs/gobble/"}
 gobble = "0.6.3"
+tokenate = {path="../../mlibs/tokenate/"}
 anyhow="1.0.31"
 thiserror="1.0.17"
 serde = "1.0.106"
