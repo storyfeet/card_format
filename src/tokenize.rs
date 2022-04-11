@@ -41,6 +41,10 @@ impl<'a> CardTokenizer<'a> {
         }
     }
 
+    pub fn peek_pos(&mut self) -> Pos {
+        self.tk.peek_pos()
+    }
+
     pub fn qoth(&mut self) -> TokenRes<'a, CardToken> {
         self.tk.start_token();
         self.tk.unpeek();

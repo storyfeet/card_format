@@ -28,6 +28,8 @@ pub enum CardErr {
     Expected(&'static str, GotToken),
     #[error("{}",.0)]
     TokenErr(TErr),
+    #[error("Error : {} at {:?}" ,.0,.1)]
+    AtErr(String, Pos),
 }
 
 impl From<tokenate::TErr> for CardErr {

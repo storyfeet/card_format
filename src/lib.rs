@@ -3,6 +3,7 @@ pub mod err;
 pub mod parse;
 pub mod tokenize;
 use card::Card;
+use err::CardErr;
 
 pub type CardRes<T> = Result<T, err::CardErr>;
 
