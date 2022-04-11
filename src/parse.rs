@@ -1,6 +1,5 @@
 use crate::card::*;
 use crate::tokenize::{CardToken, CardTokenizer};
-use serde::ser::{Serialize, SerializeSeq, Serializer};
 use std::collections::BTreeMap;
 use tokenate::{TErr, Token, TokenRes};
 
@@ -8,16 +7,16 @@ pub type CVec = Vec<(String, CData)>;
 
 #[derive(Debug, PartialEq, Clone)]
 pub enum Line {
-    Def(CVec),
-    Var(String, CVec),
+    DefaultData(String, Vec<CData>),
+    VarDef(String, CVec),
+    VarRef(String),
     Param(Vec<String>),
     Card {
         num: usize,
         name: String,
         params: Vec<CData>,
-        parent: Option<String>,
-        data: CVec,
     },
+    Data(String, CData),
 }
 
 pub struct LineParser<'a> {
@@ -45,11 +44,14 @@ impl<'a> LineParser<'a> {
         }
     }
 
-    pub fn peek_token(&mut self) -> TokenRes<'a, CardToken> {
+    pub fn peek_token<'b>(&'b mut self) -> Result<Option<&Token<'a, CardToken>>, TErr> {
         if self.peek.is_none() {
             self.peek = self.tk.next()?;
         }
-        Ok(self.peek.clone())
+        match &self.peek {
+            Some(t) => Ok(Some(t)),
+            None => Ok(None),
+        }
     }
     pub fn unpeek(&mut self) {
         self.peek = None;
@@ -66,9 +68,30 @@ impl<'a> LineParser<'a> {
         Ok(())
     }
 
-    pub fn next(&mut self) -> anyhow::Result<Line> {
+    pub fn num(&mut self) -> anyhow::Result<Option<usize>> {
+        unimplemented! {}
+    }
+
+    pub fn next_line(&mut self) -> anyhow::Result<Option<Line>> {
+        self.breaks()?;
+        let nt = match self.next_token()? {
+            Some(t) => t,
+            None => return Ok(None),
+        };
+        match nt {}
+    }
+
+    pub fn next_card(&mut self) -> anyhow::Result<Option<Card>> {
         self.breaks();
         match self.peek_token()? {}
+    }
+
+    pub fn parse_cards(&mut self) -> anyhow::Result<Vec<Card>> {
+        let mut res = Vec::new();
+        while let Some(c) = self.next_card()? {
+            res.push(c);
+        }
+        Ok(res)
     }
 }
 
