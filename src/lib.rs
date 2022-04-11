@@ -1,37 +1,27 @@
 pub mod card;
+pub mod err;
 pub mod parse;
 pub mod tokenize;
 use card::Card;
+
+pub type CardRes<T> = Result<T, err::CardErr>;
+
 //use failure_derive::*;
-use gobble::err::StrungError;
 //use gobble::traits::*;
 //pub use parse::{CData, CVec, Entry};
 //use std::collections::BTreeMap;
 use std::io::Read;
-use thiserror::*;
-
-#[derive(Debug, Error)]
-pub enum CardErr {
-    #[error("File Error")]
-    FileErr,
-    #[error("Parse Error: {}", .0)]
-    ParseErr(StrungError),
-    #[error("Error referencing {} from {}", .0, .1)]
-    RefErr(String, String),
-    // #[error("No Card to add {}:{:?} to", .0,.1)]
-    //  AddErr(String, CData),
-}
 
 /*fn c_map(v: CVec) -> BTreeMap<String, CData> {
     v.into_iter().collect()
 }*/
 
-pub fn parse_cards(s: &str) -> anyhow::Result<Vec<Card>> {
+pub fn parse_cards(s: &str) -> CardRes<Vec<Card>> {
     let mut p = parse::LineParser::new(s);
     p.parse_cards()
 }
 
-pub fn load_cards<R: Read>(r: &mut R) -> anyhow::Result<Vec<Card>> {
+pub fn load_cards<R: Read>(r: &mut R) -> CardRes<Vec<Card>> {
     let mut s = String::new();
     r.read_to_string(&mut s).map_err(|_| CardErr::FileErr)?;
     parse_cards(&s)

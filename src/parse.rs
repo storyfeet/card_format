@@ -1,5 +1,7 @@
 use crate::card::*;
+use crate::err;
 use crate::tokenize::{CardToken, CardTokenizer};
+use crate::CardRes;
 use std::collections::BTreeMap;
 use tokenate::{TErr, Token, TokenRes};
 
@@ -72,21 +74,24 @@ impl<'a> LineParser<'a> {
         unimplemented! {}
     }
 
-    pub fn next_line(&mut self) -> anyhow::Result<Option<Line>> {
+    pub fn next_line(&mut self) -> CardRes<Option<Line>> {
         self.breaks()?;
         let nt = match self.next_token()? {
             Some(t) => t,
             None => return Ok(None),
         };
-        match nt {}
+        match nt.value {
+            CardToken::Dot => unimplemented! {},
+            _ => return err::expected("An entry ", &nt),
+        }
     }
 
-    pub fn next_card(&mut self) -> anyhow::Result<Option<Card>> {
+    pub fn next_card(&mut self) -> CardRes<Option<Card>> {
         self.breaks();
         match self.peek_token()? {}
     }
 
-    pub fn parse_cards(&mut self) -> anyhow::Result<Vec<Card>> {
+    pub fn parse_cards(&mut self) -> CardRes<Vec<Card>> {
         let mut res = Vec::new();
         while let Some(c) = self.next_card()? {
             res.push(c);
