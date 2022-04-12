@@ -84,20 +84,32 @@ impl<'a> LineParser<'a> {
         Ok(())
     }
 
-    pub fn num(&mut self) -> anyhow::Result<Option<usize>> {
-        unimplemented! {}
+    pub fn value(&mut self) -> CardRes<CData> {
+        let t = resop!(self.next_token());
+        match &t.value {
+            CardToken::DollarVar(v) => match self.vars.get(v) {
+                Some(v) => Ok(v.clone()),
+                None => expected("Var does not exist", &t),
+            },
+            CardToken::Number(n) => Ok(CData::N(*n)),
+            CardToken::Minus => match resop!(self.next_token()).value {
+                CardToken::Number(n) => Ok(CData::N(-n)),
+            },
+            //            CardToken::Number(
+            _ => expected("A Value", &t),
+        }
     }
 
     pub fn next_line(&mut self) -> CardRes<Option<Line>> {
         self.breaks()?;
-
-        match resop!(self.peek_token()).value {
+        let nt = resop!(self.peek_token());
+        match nt.value {
             CardToken::KwParam => {
                 //eg: @param size strength type
                 self.unpeek();
                 let mut pp = Vec::new();
                 while let Some(tk) = self.peek_token()? {
-                    if let CardToken::Text(t) = tk.value {
+                    if let CardToken::Text(t) = &tk.value {
                         pp.push(t.to_string());
                     } else {
                         return Ok(Some(Line::Param(pp)));
@@ -108,7 +120,7 @@ impl<'a> LineParser<'a> {
             CardToken::Dot => unimplemented! {
                 //eg: .key:"Value"
             },
-            _ => return expected("An entry ", &nt),
+            _ => expected("An entry ", nt),
         }
     }
 
@@ -187,7 +199,7 @@ impl<'a> LineParser<'a> {
     }
 }
 
-#[cfg(test)]
+#[cfg(gods)]
 mod tests {
     use super::*;
     use std::collections::BTreeMap;

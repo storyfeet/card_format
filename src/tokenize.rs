@@ -7,17 +7,22 @@ pub enum CardToken {
     KwParam,
     KwVar,
     KwDef,
-    Dollar,
     Colon,
     Comma,
     Star,
+    Minus,
     SquareOpen,
     SquareClose,
     WiggleOpen,
     WiggleClose,
     Break,
+    DollarVar(String),
     Text(String),
-    Number(i64),
+    Number(isize),
+}
+
+fn num_digit(c: char) -> bool {
+    c >= '0' && c <= '9'
 }
 
 impl CardToken {
@@ -70,10 +75,17 @@ impl<'a> CardTokenizer<'a> {
             '{' => self.tk.token_res(CardToken::WiggleOpen, true),
             '}' => self.tk.token_res(CardToken::WiggleClose, true),
             '*' => self.tk.token_res(CardToken::Star, true),
+            '-' => self.tk.token_res(CardToken::Minus, true),
             ',' => self.tk.token_res(CardToken::Comma, true),
-            '$' => self.tk.token_res(CardToken::Dollar, true),
             '.' => self.tk.follow_or('.', CardToken::DotDot, CardToken::Dot),
             '\n' | ';' => self.tk.token_res(CardToken::Break, true),
+            '$' => {
+                self.tk.unpeek();
+                self.tk.take_while(char::is_alphabetic, |s| {
+                    Ok(CardToken::DollarVar(s.to_string()))
+                })
+            }
+
             '@' => {
                 self.tk.unpeek();
                 self.tk.take_while(char::is_alphabetic, |s| {
@@ -90,6 +102,11 @@ impl<'a> CardTokenizer<'a> {
             c if c.is_alphabetic() => self
                 .tk
                 .take_while(char::is_alphabetic, |s| Ok(CardToken::Text(s.to_string()))),
+            c if num_digit(c) => self.tk.take_while(num_digit, |s| {
+                Ok(CardToken::Number(
+                    s.parse().map_err(|_| "Could not make number".to_string())?,
+                ))
+            }),
 
             _ => self.tk.expected("Something else".to_string()),
         }

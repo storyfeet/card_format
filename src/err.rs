@@ -13,7 +13,7 @@ pub fn expected<T>(exp: &'static str, tk: &Token<CardToken>) -> Result<T, CardEr
         exp,
         GotToken {
             pos: tk.start,
-            v: tk.value,
+            v: tk.value.clone(),
         },
     ))
 }
