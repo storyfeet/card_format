@@ -3,9 +3,7 @@ pub mod err;
 pub mod parse;
 pub mod tokenize;
 pub use card::{CData, Card};
-use err::CardErr;
-
-pub type CardRes<T> = Result<T, err::CardErr>;
+pub use err::{CardErr, CardRes};
 
 //use failure_derive::*;
 //use gobble::traits::*;

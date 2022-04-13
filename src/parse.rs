@@ -12,6 +12,12 @@ macro_rules! resop {
             None => return Ok(None),
         }
     };
+    ($e:expr,$err:expr) => {
+        match $e? {
+            Some(s) => s,
+            None => return Err(CardErr::EOF($err)),
+        }
+    };
 }
 
 pub type CVec = Vec<(String, CData)>;
@@ -26,7 +32,7 @@ pub enum Line {
         name: String,
         params: Vec<CData>,
     },
-    Data(String, CData),
+    Data(String, usize, usize, CData),
 }
 
 pub struct LineParser<'a> {
@@ -60,6 +66,32 @@ impl<'a> LineParser<'a> {
         }
     }
 
+    pub fn consume<T, F: Fn(&CardToken) -> Option<T>>(
+        &mut self,
+        f: F,
+        exp: &'static str,
+    ) -> CardRes<T> {
+        let t = match self.next_token()? {
+            Some(t) => t,
+            None => return Err(CardErr::EOF(exp)),
+        };
+        match f(&t.value) {
+            Some(t) => Ok(t),
+            None => expected(exp, &t),
+        }
+    }
+
+    pub fn maybe_consume<T, F: Fn(&CardToken) -> Option<T>>(&mut self, f: F) -> CardRes<Option<T>> {
+        let t = resop!(self.peek_token());
+        match f(&t.value) {
+            Some(v) => {
+                self.unpeek();
+                Ok(Some(v))
+            }
+            None => Ok(None),
+        }
+    }
+
     pub fn peek_token<'b>(&'b mut self) -> Result<Option<&Token<'a, CardToken>>, TErr> {
         if self.peek.is_none() {
             self.peek = self.tk.next()?;
@@ -69,6 +101,7 @@ impl<'a> LineParser<'a> {
             None => Ok(None),
         }
     }
+
     pub fn unpeek(&mut self) {
         self.peek = None;
     }
@@ -85,17 +118,16 @@ impl<'a> LineParser<'a> {
     }
 
     pub fn value(&mut self) -> CardRes<CData> {
-        let t = resop!(self.next_token());
+        let t = resop!(self.next_token(), "Value");
         match &t.value {
             CardToken::DollarVar(v) => match self.vars.get(v) {
                 Some(v) => Ok(v.clone()),
                 None => expected("Var does not exist", &t),
             },
             CardToken::Number(n) => Ok(CData::N(*n)),
-            CardToken::Minus => match resop!(self.next_token()).value {
-                CardToken::Number(n) => Ok(CData::N(-n)),
-            },
-            //            CardToken::Number(
+            CardToken::Minus => self
+                .consume(|v| v.as_number(), "Number")
+                .map(|n| CData::N(-n)),
             _ => expected("A Value", &t),
         }
     }
@@ -117,9 +149,13 @@ impl<'a> LineParser<'a> {
                 }
                 Ok(Some(Line::Param(pp)))
             }
-            CardToken::Dot => unimplemented! {
-                //eg: .key:"Value"
-            },
+            CardToken::Dots(pre) => {
+                let name = self.consume(CardToken::as_text, "Property Name")?;
+                let post = self.maybe_consume(CardToken::as_dots)?.unwrap_or(0);
+                self.consume(|v| v.eq_option(&CardToken::Colon), "Colon")?;
+                let v = self.value()?;
+                Ok(Some(Line::Data(name, pre, post, v)))
+            }
             _ => expected("An entry ", nt),
         }
     }
@@ -178,7 +214,7 @@ impl<'a> LineParser<'a> {
                         None => self.res = Some(tres),
                     }
                 }
-                Line::Data(k, val) => match &mut self.res {
+                Line::Data(k, pre, post, val) => match &mut self.res {
                     Some(r) => {
                         r.data.insert(k, val);
                     }
@@ -220,10 +256,5 @@ mod tests {
                 ("do".to_string(), CData::S("yes".to_string())),
             ])
         );
-        //assert_eq!(cf[1], Line::Def);
-        /*assert_eq!(
-            cf[2],
-            Line::Set("speak".to_string(), CData::S("no".to_string()))
-        );*/
     }
 }

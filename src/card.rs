@@ -1,3 +1,4 @@
+use crate::err::{CardErr, CardRes};
 use serde_derive::*;
 use std::collections::BTreeMap;
 
@@ -7,6 +8,26 @@ pub enum CData {
     N(isize),
     R(String),
     L(Vec<CData>),
+}
+
+impl CData {
+    pub fn wrap(mut self, w: usize) -> Self {
+        for _ in 0..w {
+            self = CData::L(vec![self]);
+        }
+        self
+    }
+
+    pub fn add_child(&mut self, mut c: CData, depth: usize, wrap: usize) -> CardRes<()> {
+        match self {
+            CData::L(l) => match l.last_mut() {
+                None => l.push(c.wrap(wrap + depth)),
+                Some(ls) => ls.add_child(c, depth - 1, wrap),
+            },
+            _ => Err::CardErr,
+        }
+        Ok(())
+    }
 }
 
 #[derive(Clone, Debug, Serialize)]
