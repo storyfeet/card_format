@@ -1,4 +1,4 @@
-use crate::err::{CardErr, CardRes};
+use crate::err::CardErr;
 use serde_derive::*;
 use std::collections::BTreeMap;
 
@@ -18,13 +18,21 @@ impl CData {
         self
     }
 
-    pub fn add_child(&mut self, mut c: CData, depth: usize, wrap: usize) -> CardRes<()> {
+    pub fn add_child(&mut self, c: CData, depth: usize, wrap: usize) -> Result<(), CardErr> {
         match self {
-            CData::L(l) => match l.last_mut() {
-                None => l.push(c.wrap(wrap + depth)),
-                Some(ls) => ls.add_child(c, depth - 1, wrap),
-            },
-            _ => Err::CardErr,
+            CData::L(l) => {
+                if depth <= 0 {
+                    l.push(c.wrap(wrap));
+                    return Ok(());
+                }
+                match l.last_mut() {
+                    None => l.push(c.wrap(wrap + depth)),
+                    Some(ls) => {
+                        ls.add_child(c, depth - 1, wrap)?;
+                    }
+                }
+            }
+            _ => return Err(CardErr::Unset),
         }
         Ok(())
     }

@@ -22,7 +22,7 @@ pub fn parse_cards(s: &str) -> CardRes<Vec<Card>> {
 
 pub fn load_cards<R: Read>(r: &mut R) -> CardRes<Vec<Card>> {
     let mut s = String::new();
-    r.read_to_string(&mut s).map_err(|_| CardErr::FileErr)?;
+    r.read_to_string(&mut s).map_err(|_| err::AtErr::FileErr)?;
     parse_cards(&s)
 }
 

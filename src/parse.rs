@@ -15,7 +15,7 @@ macro_rules! resop {
     ($e:expr,$err:expr) => {
         match $e? {
             Some(s) => s,
-            None => return Err(CardErr::EOF($err)),
+            None => return Err(CardErr::Expected($err).eof()),
         }
     };
 }
@@ -73,7 +73,7 @@ impl<'a> LineParser<'a> {
     ) -> CardRes<T> {
         let t = match self.next_token()? {
             Some(t) => t,
-            None => return Err(CardErr::EOF(exp)),
+            None => return Err(CardErr::Expected(exp).eof()),
         };
         match f(&t.value) {
             Some(t) => Ok(t),
@@ -166,10 +166,7 @@ impl<'a> LineParser<'a> {
             defdata.insert(
                 self.params
                     .get(n)
-                    .ok_or(CardErr::AtErr(
-                        "Not enough params defined before".to_string(),
-                        self.tk.peek_pos(),
-                    ))?
+                    .ok_or(CardErr::S("Not enough params defined before").at(self.tk.peek_pos()))?
                     .to_string(),
                 p,
             );
