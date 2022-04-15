@@ -1,7 +1,7 @@
 extern crate card_format;
 use std::io::{self, Read};
 
-pub fn main() -> anyhow::Result<()> {
+pub fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut buf = String::new();
     let mut sin = io::stdin();
     sin.read_to_string(&mut buf)?;

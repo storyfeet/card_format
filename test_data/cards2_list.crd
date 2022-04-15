@@ -1,0 +1,8 @@
+horse:
+.jobs.:[[wood,4],[metal,1]]
+..jobs:[[movement,1]]
+.jobs.:[[scrap,1]]
+..jobs:[[meat,5]]
+
+
+

@@ -318,7 +318,7 @@ impl<'a> LineParser<'a> {
                                 .map_err(|e| e.at(self.tk.peek_pos()))?;
                         }
                         None => {
-                            tree.insert(k, val.wrap(post + pre - 1));
+                            tree.insert(k, val.wrap(post + pre));
                         }
                     }
                 }
