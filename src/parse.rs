@@ -121,7 +121,7 @@ impl<'a> LineParser<'a> {
         Ok(())
     }
 
-    pub fn values(&mut self) -> CardRes<Vec<CData>> {
+    pub fn values(&mut self, list: bool) -> CardRes<Vec<CData>> {
         let mut res = Vec::new();
         loop {
             let pk = match self.peek_token()? {
@@ -134,7 +134,17 @@ impl<'a> LineParser<'a> {
                 | CardToken::Minus
                 | CardToken::Text(_)
                 | CardToken::SquareOpen => res.push(self.value()?),
-                CardToken::Break | CardToken::Colon => return Ok(res),
+                CardToken::Comma => {
+                    self.unpeek();
+                }
+                CardToken::Break | CardToken::Colon => match list {
+                    true => self.unpeek(),
+                    false => return Ok(res),
+                },
+                CardToken::SquareClose => match list {
+                    true => return Ok(res),
+                    false => return Err(CardErr::Expected("Value").got(pk)),
+                },
                 _ => return Err(CardErr::Expected("Value").got(pk)),
             }
         }
@@ -152,6 +162,11 @@ impl<'a> LineParser<'a> {
                 .consume(|v| v.as_number(), "Number")
                 .map(|n| CData::N(-n)),
             CardToken::Text(tx) => Ok(CData::S(tx.clone())),
+            CardToken::SquareOpen => {
+                let v = self.values(true)?;
+                self.consume(|t| t.eq_option(&CardToken::SquareClose), "Close List")?;
+                Ok(CData::L(v))
+            }
             _ => expected("A Value", &t),
         }
     }
@@ -164,7 +179,7 @@ impl<'a> LineParser<'a> {
                 self.unpeek();
                 self.consume(|t| t.eq_option(&CardToken::Star), "Star")?;
                 let name = self.consume(|t| t.as_text(), "Card Name")?;
-                let params = self.values()?;
+                let params = self.values(false)?;
                 self.maybe_consume(|t| t.eq_option(&CardToken::Colon))?;
                 Ok(Some(Line::Card {
                     name,
@@ -174,7 +189,7 @@ impl<'a> LineParser<'a> {
             }
             CardToken::Text(name) => {
                 self.unpeek();
-                let params = self.values()?;
+                let params = self.values(false)?;
                 self.maybe_consume(|t| t.eq_option(&CardToken::Colon))?;
                 Ok(Some(Line::Card {
                     name: name.clone(),
@@ -198,7 +213,7 @@ impl<'a> LineParser<'a> {
             }
             CardToken::KwDef => {
                 self.unpeek();
-                let v = self.values()?;
+                let v = self.values(false)?;
                 self.maybe_consume(|t| t.eq_option(&CardToken::Colon))?;
                 Ok(Some(Line::DefaultData(v)))
             }

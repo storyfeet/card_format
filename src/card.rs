@@ -36,6 +36,13 @@ impl CData {
         }
         Ok(())
     }
+
+    pub fn as_list(&self) -> Option<&Vec<CData>> {
+        match self {
+            CData::L(l) => Some(l),
+            _ => None,
+        }
+    }
 }
 
 #[derive(Clone, Debug, Serialize)]

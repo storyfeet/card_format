@@ -34,8 +34,10 @@ pub mod test {
     pub fn test_can_load_cards() {
         let mut f = File::open("test_data/cards1.card").unwrap();
         let cds = load_cards(&mut f).unwrap();
+        assert_eq!(cds[0].data.get("speak"), Some(&CData::S("no".to_string())));
         assert_eq!(cds[1].data.get("do"), Some(&CData::S("paint".to_string())));
         assert_eq!(cds[1].data.get("speak"), Some(&CData::S("no".to_string())));
-        assert_eq!(cds[0].data.get("speak"), Some(&CData::S("no".to_string())));
+        let pets = cds[2].data.get("pets").unwrap().as_list().unwrap();
+        assert_eq!(pets.get(1).unwrap(), &CData::S("cat".to_string()));
     }
 }

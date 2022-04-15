@@ -13,3 +13,6 @@
 porp $purple:
     .do:"paint"
 
+doggo:
+    .pets:[fish,cat,cow]
+
