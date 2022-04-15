@@ -4,7 +4,7 @@ use tokenate::*;
 pub enum CardToken {
     Dots(usize),
     KwParam,
-    KwVar,
+    KwConst,
     KwDef,
     Colon,
     Comma,
@@ -58,7 +58,7 @@ impl CardToken {
         match s {
             "def" => Some(CardToken::KwDef),
             "param" => Some(CardToken::KwParam),
-            "var" => Some(CardToken::KwVar),
+            "const" => Some(CardToken::KwConst),
             _ => None,
         }
     }
@@ -149,12 +149,12 @@ mod token_tests {
     use super::*;
     #[test]
     pub fn test_keywords() {
-        let s = "@param @var @poo";
+        let s = "@param @const @poo";
         let mut tk = CardTokenizer::new(s);
         let nx = tk.next().unwrap().unwrap();
         assert_eq!(nx.value, CardToken::KwParam);
         let nx = tk.next().unwrap().unwrap();
-        assert_eq!(nx.value, CardToken::KwVar);
+        assert_eq!(nx.value, CardToken::KwConst);
         assert!(tk.next().is_err());
     }
 }

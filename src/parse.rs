@@ -217,7 +217,7 @@ impl<'a> LineParser<'a> {
                 self.maybe_consume(|t| t.eq_option(&CardToken::Colon))?;
                 Ok(Some(Line::DefaultData(v)))
             }
-            CardToken::KwVar => {
+            CardToken::KwConst => {
                 self.unpeek();
                 let name = self.consume(|t| t.as_text(), "Var Name")?;
                 self.maybe_consume(|t| t.eq_option(&CardToken::Colon))?;

@@ -1,6 +1,6 @@
 [package]
 name = "card_format"
-version = "0.1.0"
+version = "0.2.0"
 authors = ["storyfeet <thebeaky@psmail.net>"]
 edition = "2018"
 license = "MIT"
@@ -22,9 +22,9 @@ path="src/card_check.rs"
 
 [dependencies]
 #gobble = {path="../../mlibs/gobble/"}
-gobble = "0.6.3"
+#gobble = "0.6.3"
 tokenate = {path="../../mlibs/tokenate/"}
-anyhow="1.0.31"
+#anyhow="1.0.31"
 thiserror="1.0.17"
 serde = "1.0.106"
 serde_derive = "1.0.106"
