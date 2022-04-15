@@ -35,10 +35,7 @@ pub mod test {
         let mut f = File::open("test_data/cards1.card").unwrap();
         let cds = load_cards(&mut f).unwrap();
         assert_eq!(cds[1].data.get("do"), Some(&CData::S("paint".to_string())));
-        assert_eq!(
-            cds[1].data.get("speak"),
-            Some(&CData::S("mauve".to_string()))
-        );
+        assert_eq!(cds[1].data.get("speak"), Some(&CData::S("no".to_string())));
         assert_eq!(cds[0].data.get("speak"), Some(&CData::S("no".to_string())));
     }
 }

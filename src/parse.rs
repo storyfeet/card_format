@@ -41,7 +41,7 @@ pub struct LineParser<'a> {
     peek: Option<Token<'a, CardToken>>,
     default: BTreeMap<String, CData>,
     params: Vec<String>,
-    res: Option<Card>,
+    curr_card: Option<Card>,
 }
 
 impl<'a> LineParser<'a> {
@@ -52,7 +52,7 @@ impl<'a> LineParser<'a> {
             peek: None,
             default: BTreeMap::new(),
             params: Vec::new(),
-            res: None,
+            curr_card: None,
         }
     }
     pub fn add_var(&mut self, k: String, v: CData) {
@@ -102,6 +102,10 @@ impl<'a> LineParser<'a> {
         }
     }
 
+    pub fn peek_value<'b>(&'b mut self) -> Result<Option<&'b CardToken>, TErr> {
+        Ok(Some(&resop!(self.peek_token()).value))
+    }
+
     pub fn unpeek(&mut self) {
         self.peek = None;
     }
@@ -117,6 +121,25 @@ impl<'a> LineParser<'a> {
         Ok(())
     }
 
+    pub fn values(&mut self) -> CardRes<Vec<CData>> {
+        let mut res = Vec::new();
+        loop {
+            let pk = match self.peek_token()? {
+                None => return Ok(res),
+                Some(p) => p,
+            };
+            match pk.value {
+                CardToken::DollarVar(_)
+                | CardToken::Number(_)
+                | CardToken::Minus
+                | CardToken::Text(_)
+                | CardToken::SquareOpen => res.push(self.value()?),
+                CardToken::Break | CardToken::Colon => return Ok(res),
+                _ => return Err(CardErr::Expected("Value").got(pk)),
+            }
+        }
+    }
+
     pub fn value(&mut self) -> CardRes<CData> {
         let t = resop!(self.next_token(), "Value");
         match &t.value {
@@ -128,14 +151,37 @@ impl<'a> LineParser<'a> {
             CardToken::Minus => self
                 .consume(|v| v.as_number(), "Number")
                 .map(|n| CData::N(-n)),
+            CardToken::Text(tx) => Ok(CData::S(tx.clone())),
             _ => expected("A Value", &t),
         }
     }
 
     pub fn next_line(&mut self) -> CardRes<Option<Line>> {
         self.breaks()?;
-        let nt = resop!(self.peek_token());
+        let nt = resop!(self.peek_token()).clone();
         match nt.value {
+            CardToken::Number(num) => {
+                self.unpeek();
+                self.consume(|t| t.eq_option(&CardToken::Star), "Star")?;
+                let name = self.consume(|t| t.as_text(), "Card Name")?;
+                let params = self.values()?;
+                self.maybe_consume(|t| t.eq_option(&CardToken::Colon))?;
+                Ok(Some(Line::Card {
+                    name,
+                    num: num as usize,
+                    params,
+                }))
+            }
+            CardToken::Text(name) => {
+                self.unpeek();
+                let params = self.values()?;
+                self.maybe_consume(|t| t.eq_option(&CardToken::Colon))?;
+                Ok(Some(Line::Card {
+                    name: name.clone(),
+                    num: 1,
+                    params,
+                }))
+            }
             CardToken::KwParam => {
                 //eg: @param size strength type
                 self.unpeek();
@@ -143,20 +189,35 @@ impl<'a> LineParser<'a> {
                 while let Some(tk) = self.peek_token()? {
                     if let CardToken::Text(t) = &tk.value {
                         pp.push(t.to_string());
+                        self.unpeek();
                     } else {
                         return Ok(Some(Line::Param(pp)));
                     };
                 }
                 Ok(Some(Line::Param(pp)))
             }
+            CardToken::KwDef => {
+                self.unpeek();
+                let v = self.values()?;
+                self.maybe_consume(|t| t.eq_option(&CardToken::Colon))?;
+                Ok(Some(Line::DefaultData(v)))
+            }
+            CardToken::KwVar => {
+                self.unpeek();
+                let name = self.consume(|t| t.as_text(), "Var Name")?;
+                self.maybe_consume(|t| t.eq_option(&CardToken::Colon))?;
+                let v = self.value()?;
+                Ok(Some(Line::VarDef(name, v)))
+            }
             CardToken::Dots(pre) => {
+                self.unpeek();
                 let name = self.consume(CardToken::as_text, "Property Name")?;
                 let post = self.maybe_consume(CardToken::as_dots)?.unwrap_or(0);
                 self.consume(|v| v.eq_option(&CardToken::Colon), "Colon")?;
                 let v = self.value()?;
                 Ok(Some(Line::Data(name, pre, post, v)))
             }
-            _ => expected("An entry ", nt),
+            _ => expected("An entry ", &nt),
         }
     }
 
@@ -175,13 +236,35 @@ impl<'a> LineParser<'a> {
     }
 
     pub fn next_card(&mut self) -> CardRes<Option<Card>> {
-        self.breaks();
+        self.breaks()?;
         loop {
-            match resop!(self.next_line()) {
+            let ln = match self.next_line()? {
+                Some(ln) => ln,
+                None => match self.curr_card.take() {
+                    Some(mut curr) => {
+                        for (k, v) in &self.default {
+                            if curr.data.get(k).is_none() {
+                                curr.data.insert(k.to_string(), v.clone());
+                            }
+                        }
+                        return Ok(Some(curr));
+                    }
+                    None => return Ok(None),
+                },
+            };
+            match ln {
                 Line::DefaultData(params) => {
+                    if let Some(curr) = &mut self.curr_card {
+                        for (k, v) in &self.default {
+                            if curr.data.get(k).is_none() {
+                                curr.data.insert(k.to_string(), v.clone());
+                            }
+                        }
+                    }
+
                     self.default = self.fill_params(params)?;
-                    if let Some(r) = self.res.take() {
-                        return Ok(Some(r));
+                    if let Some(tres) = self.curr_card.take() {
+                        return Ok(Some(tres));
                     }
                 }
                 Line::VarDef(name, val) => {
@@ -191,34 +274,39 @@ impl<'a> LineParser<'a> {
                     self.params = v;
                 }
                 Line::Card { num, name, params } => {
-                    let mut tres = Card {
+                    let tres = self.curr_card.take();
+
+                    self.curr_card = Some(Card {
                         num,
                         name,
                         data: self.fill_params(params)?,
-                    };
+                    });
 
-                    for (k, v) in &self.default {
-                        if tres.data.get(k).is_none() {
-                            tres.data.insert(k.to_string(), v.clone());
+                    if let Some(mut r) = tres {
+                        for (k, v) in &self.default {
+                            if r.data.get(k).is_none() {
+                                r.data.insert(k.to_string(), v.clone());
+                            }
                         }
-                    }
-
-                    match self.res.take() {
-                        Some(r) => {
-                            self.res = Some(tres);
-                            return Ok(Some(r));
-                        }
-                        None => self.res = Some(tres),
+                        return Ok(Some(r));
                     }
                 }
-                Line::Data(k, pre, post, val) => match &mut self.res {
-                    Some(r) => {
-                        r.data.insert(k, val);
+                Line::Data(k, pre, post, val) => {
+                    let tree = match &mut self.curr_card {
+                        Some(r) => &mut r.data,
+                        None => &mut self.default,
+                    };
+
+                    match tree.get_mut(&k) {
+                        Some(c) => {
+                            c.add_child(val.wrap(post), pre - 1)
+                                .map_err(|e| e.at(self.tk.peek_pos()))?;
+                        }
+                        None => {
+                            tree.insert(k, val.wrap(post + pre - 1));
+                        }
                     }
-                    None => {
-                        self.default.insert(k, val);
-                    }
-                },
+                }
             }
         }
     }

@@ -1,13 +1,15 @@
+@param color
 
-def :
+@def :
     .speak:"no"
     .do:"yes"
 
 4 * help:
     .tx:"can make sandwiches"
 
-var purple:
-    .speak:"mauve"
+
+@var purple:"Prap"
 
 porp $purple:
     .do:"paint"
+

@@ -98,6 +98,7 @@ impl<'a> CardTokenizer<'a> {
             Some(c) => c,
         };
         match pc {
+            ':' => self.tk.token_res(CardToken::Colon, true),
             '[' => self.tk.token_res(CardToken::SquareOpen, true),
             ']' => self.tk.token_res(CardToken::SquareClose, true),
             '{' => self.tk.token_res(CardToken::WiggleOpen, true),

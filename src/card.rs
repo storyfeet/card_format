@@ -18,17 +18,17 @@ impl CData {
         self
     }
 
-    pub fn add_child(&mut self, c: CData, depth: usize, wrap: usize) -> Result<(), CardErr> {
+    pub fn add_child(&mut self, c: CData, depth: usize) -> Result<(), CardErr> {
         match self {
             CData::L(l) => {
                 if depth <= 0 {
-                    l.push(c.wrap(wrap));
+                    l.push(c);
                     return Ok(());
                 }
                 match l.last_mut() {
-                    None => l.push(c.wrap(wrap + depth)),
+                    None => l.push(c.wrap(depth)),
                     Some(ls) => {
-                        ls.add_child(c, depth - 1, wrap)?;
+                        ls.add_child(c, depth - 1)?;
                     }
                 }
             }
