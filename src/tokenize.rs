@@ -16,7 +16,9 @@ pub enum CardToken {
     WiggleOpen,
     WiggleClose,
     Break,
-    DollarVar(String),
+    Dollar,
+    //DollarVar(String),
+    //DollarNum(usize),
     Text(String),
     Number(isize),
 }
@@ -92,6 +94,12 @@ impl<'a> CardTokenizer<'a> {
         }
     }
 
+    pub fn number(&mut self) -> TokenRes<'a, usize> {
+        self.tk.take_while(num_digit, |s| {
+            Ok(s.parse().map_err(|_| "Could not make number".to_string())?)
+        })
+    }
+
     pub fn next(&mut self) -> TokenRes<'a, CardToken> {
         self.tk.skip(" \t\r");
         let pc = match self.tk.peek_char() {
@@ -109,16 +117,21 @@ impl<'a> CardTokenizer<'a> {
             ',' => self.tk.token_res(CardToken::Comma, true),
             '\n' | ';' => self.tk.token_res(CardToken::Break, true),
             '.' => self.tk.token_res(CardToken::Dot, true),
+            '$' => self.tk.token_res(CardToken::Dollar, true),
             /*      '.' => self
             .tk
             .take_while(|c| c == '.', |s| Ok(CardToken::Dots(s.len()))),*/
-            '$' => {
+            /*'$' => {
                 self.tk.unpeek();
+                match self.tk.peek_char() {
+                    c if num_digit(c) => self
+                        .tk
+                        .token_res(self.number()?.map(CardToken::DollarNum), false),
+                }
                 self.tk.take_while(char::is_alphabetic, |s| {
                     Ok(CardToken::DollarVar(s.to_string()))
                 })
-            }
-
+            }*/
             '@' => {
                 self.tk.unpeek();
                 self.tk.take_while(char::is_alphabetic, |s| {

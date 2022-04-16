@@ -114,6 +114,11 @@ impl<'a> LineParser<'a> {
                     self.unpeek();
                     res.push(CDPathNode::DigLast);
                 }
+                CardToken::Dollar => {
+                    self.unpeek();
+                    let at = self.consume(|v| v.as_text(), "Index or Key")?;
+                    res.push(CDPathNode::AtKey(at));
+                }
                 _ => return Ok(res),
             }
         }
@@ -146,7 +151,7 @@ impl<'a> LineParser<'a> {
                 Some(p) => p,
             };
             match pk.value {
-                CardToken::DollarVar(_)
+                CardToken::Dollar
                 | CardToken::Number(_)
                 | CardToken::Minus
                 | CardToken::Text(_)
@@ -170,10 +175,13 @@ impl<'a> LineParser<'a> {
     pub fn value(&mut self) -> CardRes<CData> {
         let t = resop!(self.next_token(), "Value");
         match &t.value {
-            CardToken::DollarVar(v) => match self.vars.get(v) {
-                Some(v) => Ok(v.clone()),
-                None => expected("Var does not exist", &t),
-            },
+            CardToken::Dollar => {
+                let v = self.consume(|v| v.as_text(), "Variable Name")?;
+                match self.vars.get(&v) {
+                    Some(v) => Ok(v.clone()),
+                    None => expected("Var does not exist", &t),
+                }
+            }
             CardToken::Number(n) => Ok(CData::N(*n)),
             CardToken::Minus => self
                 .consume(|v| v.as_number(), "Number")

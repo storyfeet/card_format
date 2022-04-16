@@ -7,12 +7,14 @@ use std::fmt::{self, Display};
 pub enum CDPathNode {
     DigLast,
     Append,
+    AtKey(String),
 }
 #[derive(Debug, PartialEq, Clone, Serialize)]
 pub enum CData {
     S(String),
     N(isize),
     L(Vec<CData>),
+    M(BTreeMap<String, CData>),
 }
 
 impl Display for CData {
@@ -27,6 +29,14 @@ impl Display for CData {
                     pre = ",";
                 }
                 write!(f, "]")
+            }
+            CData::M(m) => {
+                let mut pre = "{";
+                for (k, v) in m {
+                    write!(f, "{}{}:{}", pre, k, v)?;
+                    pre = ",";
+                }
+                write!(f, "{}", "}")
             }
         }
     }
@@ -47,14 +57,27 @@ impl CData {
                 None => l.push(Self::build_from_path(c, &path[1..])),
             },
             (CData::L(l), _) => l.push(Self::build_from_path(c, &path[1..])),
+            (CData::M(m), Some(CDPathNode::AtKey(k))) => match m.get_mut(k) {
+                Some(v) => v.add_at_path(c, &path[1..])?,
+                None => {
+                    m.insert(k.clone(), CData::build_from_path(c, &path[1..]));
+                }
+            },
             (_, _) => return Err(CardErr::S("Could not add child at path")),
         }
         Ok(())
     }
 
     pub fn build_from_path(c: CData, path: &[CDPathNode]) -> CData {
-        //todo consider Map References
-        c.wrap(path.len())
+        match path.get(0) {
+            Some(CDPathNode::AtKey(k)) => {
+                let mut mp = BTreeMap::new();
+                mp.insert(k.clone(), CData::build_from_path(c, &path[1..]));
+                CData::M(mp)
+            }
+            Some(_) => CData::L(vec![CData::build_from_path(c, &path[1..])]),
+            None => c,
+        }
     }
 
     pub fn add_child(&mut self, c: CData, depth: usize) -> Result<(), CardErr> {
