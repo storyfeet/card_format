@@ -2,7 +2,8 @@ use tokenate::*;
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum CardToken {
-    Dots(usize),
+    Dot,
+    //Dots(usize),
     KwParam,
     KwConst,
     KwDef,
@@ -34,12 +35,12 @@ impl CardToken {
         }
     }
 
-    pub fn as_dots(&self) -> Option<usize> {
+    /*pub fn as_dots(&self) -> Option<usize> {
         match self {
             Self::Dots(n) => Some(*n),
             _ => None,
         }
-    }
+    }*/
 
     pub fn eq_option(&self, v: &Self) -> Option<()> {
         match self == v {
@@ -107,9 +108,10 @@ impl<'a> CardTokenizer<'a> {
             '-' => self.tk.token_res(CardToken::Minus, true),
             ',' => self.tk.token_res(CardToken::Comma, true),
             '\n' | ';' => self.tk.token_res(CardToken::Break, true),
-            '.' => self
-                .tk
-                .take_while(|c| c == '.', |s| Ok(CardToken::Dots(s.len()))),
+            '.' => self.tk.token_res(CardToken::Dot, true),
+            /*      '.' => self
+            .tk
+            .take_while(|c| c == '.', |s| Ok(CardToken::Dots(s.len()))),*/
             '$' => {
                 self.tk.unpeek();
                 self.tk.take_while(char::is_alphabetic, |s| {

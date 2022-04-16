@@ -1,13 +1,35 @@
 use crate::err::CardErr;
 use serde_derive::*;
 use std::collections::BTreeMap;
+use std::fmt::{self, Display};
 
+#[derive(Clone, Debug, PartialEq)]
+pub enum CDPathNode {
+    DigLast,
+    Append,
+}
 #[derive(Debug, PartialEq, Clone, Serialize)]
 pub enum CData {
     S(String),
     N(isize),
-    R(String),
     L(Vec<CData>),
+}
+
+impl Display for CData {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            CData::S(s) => write!(f, r#""{}""#, s),
+            CData::N(n) => write!(f, "{}", n),
+            CData::L(l) => {
+                let mut pre = "[";
+                for item in l {
+                    write!(f, "{}{}", pre, item)?;
+                    pre = ",";
+                }
+                write!(f, "]")
+            }
+        }
+    }
 }
 
 impl CData {
@@ -18,6 +40,23 @@ impl CData {
         self
     }
 
+    pub fn add_at_path(&mut self, c: CData, path: &[CDPathNode]) -> Result<(), CardErr> {
+        match (self, path.get(0)) {
+            (CData::L(l), Some(CDPathNode::DigLast)) => match l.last_mut() {
+                Some(ls) => return ls.add_at_path(c, &path[1..]),
+                None => l.push(Self::build_from_path(c, &path[1..])),
+            },
+            (CData::L(l), _) => l.push(Self::build_from_path(c, &path[1..])),
+            (_, _) => return Err(CardErr::S("Could not add child at path")),
+        }
+        Ok(())
+    }
+
+    pub fn build_from_path(c: CData, path: &[CDPathNode]) -> CData {
+        //todo consider Map References
+        c.wrap(path.len())
+    }
+
     pub fn add_child(&mut self, c: CData, depth: usize) -> Result<(), CardErr> {
         match self {
             CData::L(l) => {
@@ -26,7 +65,7 @@ impl CData {
                     return Ok(());
                 }
                 match l.last_mut() {
-                    None => l.push(c.wrap(depth)),
+                    None => l.push(c.wrap(depth - 1)),
                     Some(ls) => {
                         ls.add_child(c, depth - 1)?;
                     }
@@ -71,16 +110,14 @@ impl Card {
             }
         }
     }
+}
 
-    pub fn follow_refs(&mut self, rmap: &BTreeMap<String, BTreeMap<String, CData>>) {
-        for (k, v) in &mut self.data {
-            if let CData::R(r) = v {
-                if let Some(mp) = rmap.get(r) {
-                    if let Some(nv) = mp.get(k) {
-                        *v = nv.clone();
-                    }
-                }
-            }
+impl Display for Card {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        writeln!(f, "{}*{} : ", self.num, self.name)?;
+        for (k, v) in &self.data {
+            writeln!(f, ".{}:{}", k, v)?;
         }
+        Ok(())
     }
 }

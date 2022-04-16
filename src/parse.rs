@@ -32,7 +32,7 @@ pub enum Line {
         name: String,
         params: Vec<CData>,
     },
-    Data(String, usize, usize, CData),
+    Data(String, Vec<CDPathNode>, CData),
 }
 
 pub struct LineParser<'a> {
@@ -99,6 +99,23 @@ impl<'a> LineParser<'a> {
         match &self.peek {
             Some(t) => Ok(Some(t)),
             None => Ok(None),
+        }
+    }
+
+    pub fn cdata_path(&mut self) -> CardRes<Vec<CDPathNode>> {
+        let mut res = Vec::new();
+        loop {
+            match resop!(self.peek_token(), "Path or Value").value {
+                CardToken::Star => {
+                    self.unpeek();
+                    res.push(CDPathNode::Append);
+                }
+                CardToken::Dot => {
+                    self.unpeek();
+                    res.push(CDPathNode::DigLast);
+                }
+                _ => return Ok(res),
+            }
         }
     }
 
@@ -224,13 +241,14 @@ impl<'a> LineParser<'a> {
                 let v = self.value()?;
                 Ok(Some(Line::VarDef(name, v)))
             }
-            CardToken::Dots(pre) => {
+            CardToken::Dot => {
                 self.unpeek();
                 let name = self.consume(CardToken::as_text, "Property Name")?;
-                let post = self.maybe_consume(CardToken::as_dots)?.unwrap_or(0);
+                let path = self.cdata_path()?;
+                //let post = self.maybe_consume(CardToken::as_dots)?.unwrap_or(0);
                 self.consume(|v| v.eq_option(&CardToken::Colon), "Colon")?;
                 let v = self.value()?;
-                Ok(Some(Line::Data(name, pre, post, v)))
+                Ok(Some(Line::Data(name, path, v)))
             }
             _ => expected("An entry ", &nt),
         }
@@ -257,11 +275,7 @@ impl<'a> LineParser<'a> {
                 Some(ln) => ln,
                 None => match self.curr_card.take() {
                     Some(mut curr) => {
-                        for (k, v) in &self.default {
-                            if curr.data.get(k).is_none() {
-                                curr.data.insert(k.to_string(), v.clone());
-                            }
-                        }
+                        curr.fill_defaults(&self.default);
                         return Ok(Some(curr));
                     }
                     None => return Ok(None),
@@ -270,11 +284,7 @@ impl<'a> LineParser<'a> {
             match ln {
                 Line::DefaultData(params) => {
                     if let Some(curr) = &mut self.curr_card {
-                        for (k, v) in &self.default {
-                            if curr.data.get(k).is_none() {
-                                curr.data.insert(k.to_string(), v.clone());
-                            }
-                        }
+                        curr.fill_defaults(&self.default);
                     }
 
                     self.default = self.fill_params(params)?;
@@ -297,16 +307,12 @@ impl<'a> LineParser<'a> {
                         data: self.fill_params(params)?,
                     });
 
-                    if let Some(mut r) = tres {
-                        for (k, v) in &self.default {
-                            if r.data.get(k).is_none() {
-                                r.data.insert(k.to_string(), v.clone());
-                            }
-                        }
-                        return Ok(Some(r));
+                    if let Some(mut curr) = tres {
+                        curr.fill_defaults(&self.default);
+                        return Ok(Some(curr));
                     }
                 }
-                Line::Data(k, pre, post, val) => {
+                Line::Data(k, path, val) => {
                     let tree = match &mut self.curr_card {
                         Some(r) => &mut r.data,
                         None => &mut self.default,
@@ -314,11 +320,12 @@ impl<'a> LineParser<'a> {
 
                     match tree.get_mut(&k) {
                         Some(c) => {
-                            c.add_child(val.wrap(post), pre - 1)
+                            c.add_at_path(val, &path)
                                 .map_err(|e| e.at(self.tk.peek_pos()))?;
                         }
                         None => {
-                            tree.insert(k, val.wrap(post + pre));
+                            let v = CData::build_from_path(val, &path);
+                            tree.insert(k, v);
                         }
                     }
                 }

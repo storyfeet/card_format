@@ -40,4 +40,10 @@ pub mod test {
         let pets = cds[2].data.get("pets").unwrap().as_list().unwrap();
         assert_eq!(pets.get(1).unwrap(), &CData::S("cat".to_string()));
     }
+    #[test]
+    pub fn test_lists_work_both_ways() {
+        let mut f = File::open("test_data/cards2_list.crd").unwrap();
+        let cds = load_cards(&mut f).unwrap();
+        assert_eq!(cds[0].data, cds[1].data);
+    }
 }

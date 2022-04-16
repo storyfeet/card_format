@@ -9,7 +9,7 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
     let ar = card_format::parse_cards(&buf)?;
 
     for (i, c) in ar.iter().enumerate() {
-        println!("{} = {:?}", i, c);
+        println!("{} = {}", i, c);
     }
 
     Ok(())
