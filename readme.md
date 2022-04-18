@@ -57,3 +57,18 @@ Mine :
 
 
 
+## Format changes in 0.2.0
+
+* "var","param",and "def" were keywords which could have caused mistakes when writing if forgotten. This was awkward and I am much happier having them behind an '@' marker.
+
+* Due to other changes there is currently no way to extend another item by name. It was not a feature I used. You can however redefine the default '@def' at any time, and this will provide a prototype for others to copy.
+
+
+
+
+
+
+
+
+
+
