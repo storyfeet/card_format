@@ -46,4 +46,10 @@ pub mod test {
         let cds = load_cards(&mut f).unwrap();
         assert_eq!(cds[0].data, cds[1].data);
     }
+    #[test]
+    pub fn test_maps_work_both_ways() {
+        let mut f = File::open("test_data/cards3_maps.crd").unwrap();
+        let cds = load_cards(&mut f).unwrap();
+        assert_eq!(cds[0].data, cds[1].data);
+    }
 }

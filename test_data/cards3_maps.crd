@@ -1,3 +1,6 @@
 mappy:
 .g$s:hello
 .g$y:goodbye
+
+"mappy2":
+.g:{s:hello,y:goodbye}

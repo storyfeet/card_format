@@ -143,6 +143,37 @@ impl<'a> LineParser<'a> {
         Ok(())
     }
 
+    pub fn map_properties(&mut self) -> CardRes<BTreeMap<String, CData>> {
+        let mut res = BTreeMap::new();
+        loop {
+            let pk = match self.peek_token()? {
+                None => return Ok(res),
+                Some(p) => p,
+            };
+            match pk.value.clone() {
+                CardToken::Text(k) => {
+                    self.unpeek();
+                    let path = self.cdata_path()?;
+                    self.consume(|t| t.eq_option(&CardToken::Colon), "Colon")?;
+                    let v = self.value()?;
+                    match res.get_mut(&k) {
+                        Some(parent) => parent
+                            .add_at_path(v, &path)
+                            .map_err(|e| e.at(self.tk.peek_pos()))?,
+                        None => {
+                            res.insert(k.to_string(), CData::build_from_path(v, &path));
+                        }
+                    }
+                }
+                CardToken::Break | CardToken::Comma => self.unpeek(),
+                CardToken::WiggleClose => {
+                    return Ok(res);
+                }
+                _ => return Err(CardErr::Expected("Card Property").got(pk)),
+            }
+        }
+    }
+
     pub fn values(&mut self, list: bool) -> CardRes<Vec<CData>> {
         let mut res = Vec::new();
         loop {
@@ -155,7 +186,9 @@ impl<'a> LineParser<'a> {
                 | CardToken::Number(_)
                 | CardToken::Minus
                 | CardToken::Text(_)
+                | CardToken::WiggleOpen
                 | CardToken::SquareOpen => res.push(self.value()?),
+
                 CardToken::Comma => {
                     self.unpeek();
                 }
@@ -191,6 +224,11 @@ impl<'a> LineParser<'a> {
                 let v = self.values(true)?;
                 self.consume(|t| t.eq_option(&CardToken::SquareClose), "Close List")?;
                 Ok(CData::L(v))
+            }
+            CardToken::WiggleOpen => {
+                let mp = self.map_properties()?;
+                self.consume(|t| t.eq_option(&CardToken::WiggleClose), "Close List")?;
+                Ok(CData::M(mp))
             }
             _ => expected("A Value", &t),
         }
