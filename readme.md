@@ -52,7 +52,7 @@ Complicated properties can be predefined for reuse.
 @const mine_provides : [[wood,4],[metal,3]]
 
 Mine :
-.provides:$r_provides
+.provides:$mine_provides
 ```
 
 

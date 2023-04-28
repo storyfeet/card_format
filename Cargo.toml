@@ -27,5 +27,9 @@ path="src/card_check.rs"
 tokenate = "0.1.0"
 #anyhow="1.0.31"
 thiserror="1.0.17"
-serde = "1.0.106"
-serde_derive = "1.0.106"
+serde = {version = "1.0.106"}
+serde_derive = {version = "1.0.106"}
+clap = {version = "4.2.5",optional = true}
+
+[features]
+util = ["clap"]
