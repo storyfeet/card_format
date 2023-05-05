@@ -1,7 +1,9 @@
 use crate::err::CardErr;
 use serde_derive::*;
+use serde::Serializer as SS;
 use std::collections::BTreeMap;
 use std::fmt::{self, Display};
+use serde::ser::{Serialize, Serializer, SerializeSeq, SerializeMap};
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum CDPathNode {
@@ -9,12 +11,36 @@ pub enum CDPathNode {
     Append,
     AtKey(String),
 }
-#[derive(Debug, PartialEq, Clone, Serialize)]
+#[derive(Debug, PartialEq, Clone)]
 pub enum CData {
     S(String),
     N(isize),
     L(Vec<CData>),
     M(BTreeMap<String, CData>),
+}
+
+impl serde::Serialize for CData {
+    fn serialize<S:SS>(&self,ser: S) -> Result<<S as SS>::Ok,<S as SS>::Error> {
+        match self {
+            CData::S(s) => ser.serialize_str(s),
+            CData::N(n) => ser.serialize_i64(*n as i64),
+            CData::L(l) => {
+                let mut seq = ser.serialize_seq(Some(l.len()))?;
+                for e in l {
+                    seq.serialize_element(e);
+                }
+                seq.end()
+            }
+            CData::M(m) => {
+                let mut map = ser.serialize_map(Some(m.len()))?;
+                for (k,v) in m {
+                    map.serialize_entry(k,v);
+                }
+                map.end()
+            }
+
+        }
+    }
 }
 
 impl Display for CData {
