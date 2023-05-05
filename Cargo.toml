@@ -17,6 +17,7 @@ path="src/lib.rs"
 [[bin]]
 name="card_check"
 path="src/card_check.rs"
+required-features=["util"]
 
 
 
@@ -29,7 +30,7 @@ tokenate = "0.1.0"
 thiserror="1.0.17"
 serde = {version = "1.0.106"}
 serde_derive = {version = "1.0.106"}
-clap = {version = "4.2.5",optional = true}
-
+clap = {version = "4.2.5",features=["cargo"],optional = true}
+serde_json = {version="1.0.96",optional=true}
 [features]
-util = ["clap"]
+util = ["clap","serde_json"]
