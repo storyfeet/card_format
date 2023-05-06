@@ -1,6 +1,7 @@
 extern crate card_format;
 use std::io::{self, Read};
 use clap::{Arg,arg,Command,crate_version};
+use card_format::card::{Card,CData};
 
 pub fn main() -> Result<(), Box<dyn std::error::Error>> {
 
@@ -20,7 +21,9 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     match matches.subcommand() {
         Some(("json",_)) => {
-            print!("{}", serde_json::to_string_pretty(&ar)?);
+            let mp:Vec<CData> = ar.into_iter().map(Card::flatten).collect();
+            
+            print!("{}", serde_json::to_string_pretty(&mp)?);
         }
 
         _ => for (i, c) in ar.iter().enumerate() {

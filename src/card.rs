@@ -159,6 +159,11 @@ impl Card {
             }
         }
     }
+    pub fn flatten(mut self)->CData{
+        self.data.insert("name".to_string(), CData::S(self.name));
+        self.data.insert("num".to_string(), CData::N(self.num as isize));
+        CData::M(self.data)
+    }
 }
 
 impl Display for Card {
