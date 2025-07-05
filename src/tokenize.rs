@@ -23,6 +23,8 @@ pub enum CardToken {
     Number(isize),
 }
 
+const SPECIAL_CHARS : &str= ",.*:;-[]{}()@ \n\t";
+
 impl CardToken {
     pub fn as_text(&self) -> Option<String> {
         match self {
@@ -147,7 +149,7 @@ impl<'a> CardTokenizer<'a> {
             '"' => self.qoth(),
             c if c.is_alphabetic() => self
                 .tk
-                .take_while(char::is_alphabetic, |s| Ok(CardToken::Text(s.to_string()))),
+                .take_while(|c| !SPECIAL_CHARS.contains(c), |s| Ok(CardToken::Text(s.to_string()))),
             c if num_digit(c) => self.tk.take_while(num_digit, |s| {
                 Ok(CardToken::Number(
                     s.parse().map_err(|_| "Could not make number".to_string())?,
